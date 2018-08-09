@@ -48,7 +48,7 @@ const mockDs = {
   _options: options
 }
 
-describe('permissionHandler passes additional user meta data', () => {
+xdescribe('permissionHandler passes additional user meta data', () => {
   let socketWrapperMock
   let connectionEndpoint
 
