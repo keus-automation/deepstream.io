@@ -23,7 +23,7 @@ const EventEmitter = require('events').EventEmitter
  */
 class UwsSocketWrapper extends EventEmitter {
 
-  constructor (external, handshakeData, logger, config, connectionEndpoint) {
+  constructor (websocket, handshakeData, logger, config, connectionEndpoint) {
     super()
     this.isClosed = false
     this._logger = logger
@@ -32,8 +32,9 @@ class UwsSocketWrapper extends EventEmitter {
     this.authAttempts = 0
     this.setMaxListeners(0)
     this.uuid = Math.random()
+    this._websocket = websocket
     this._handshakeData = handshakeData
-    this._external = external
+    this._external = websocket.external
 
     this._bufferedWrites = ''
     this._config = config
@@ -65,7 +66,9 @@ class UwsSocketWrapper extends EventEmitter {
    */
   sendPrepared (preparedMessage) {
     this.flush()
-    uws.native.server.sendPrepared(this._external, preparedMessage)
+    if (this._websocket.readyState) {
+      uws.native.server.sendPrepared(this._external, preparedMessage)
+    }
   }
 
   /**
@@ -91,10 +94,10 @@ class UwsSocketWrapper extends EventEmitter {
    */
   sendNative (message, allowBuffering) {
     if (this._config.outgoingBufferTimeout === 0) {
-      uws.native.server.send(this._external, message, uws.OPCODE_TEXT)
+      this._websocket.send(message)
     } else if (!allowBuffering) {
       this.flush()
-      uws.native.server.send(this._external, message, uws.OPCODE_TEXT)
+      this._websocket.send(message)
     } else {
       this._bufferedWrites += message
       this._connectionEndpoint.scheduleFlush(this)
@@ -108,7 +111,7 @@ class UwsSocketWrapper extends EventEmitter {
    */
   flush () {
     if (this._bufferedWrites !== '') {
-      uws.native.server.send(this._external, this._bufferedWrites, uws.OPCODE_TEXT)
+      this._websocket.send(this._bufferedWrites)
       this._bufferedWrites = ''
     }
   }
@@ -156,17 +159,6 @@ class UwsSocketWrapper extends EventEmitter {
 
   // eslint-disable-next-line class-methods-use-this
   onMessage () {
-  }
-
-  /**
-   * Destroys the socket. Removes all deepstream specific
-   * logic and closes the connection
-   *
-   * @public
-   * @returns {void}
-   */
-  destroy () {
-    uws.native.server.terminate(this._external)
   }
 
   close () {

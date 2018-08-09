@@ -108,13 +108,14 @@ module.exports = class ConnectionEndpoint extends events.EventEmitter {
     this._urlPath = this._getOption('urlPath')
     this._unauthenticatedClientTimeout = this._getOption('unauthenticatedClientTimeout')
 
-    this.createWebsocketServer();
-
     this._httpServer = this.createHttpServer();
     this._httpServer.on('request', this._handleHealthCheck.bind(this))
     this._httpServer.once('listening', this._onReady.bind(this))
     this._httpServer.on('error', this._onError.bind(this))
     this.addHTTPListeners(this._httpServer);
+
+    this.websocketServer = this.createWebsocketServer();
+
     this._httpServer.listen(this._getOption('port'), this._getOption('host'))
   }
 
@@ -245,8 +246,8 @@ module.exports = class ConnectionEndpoint extends events.EventEmitter {
    * @private
    * @returns {void}
    */
-  _onConnection (socket) {
-    const socketWrapper = this.createWebsocketWrapper(socket)
+  _onConnection (socket, upgradeReq) {
+    const socketWrapper = this.createWebsocketWrapper(socket, upgradeReq)
     const handshakeData = socketWrapper.getHandshakeData()
     this._logger.info(
       C.EVENT.INCOMING_CONNECTION,
@@ -270,6 +271,8 @@ module.exports = class ConnectionEndpoint extends events.EventEmitter {
 
     socketWrapper.sendMessage(C.TOPIC.CONNECTION, C.ACTIONS.CHALLENGE)
     socketWrapper.onMessage = this._processConnectionMessage.bind(this, socketWrapper)
+    socketWrapper._websocket.on('message', message => socketWrapper.onMessage(message))
+    socketWrapper._websocket.on('close', this._onSocketClose.bind(this, socketWrapper))
   }
 
   /**
@@ -302,7 +305,7 @@ module.exports = class ConnectionEndpoint extends events.EventEmitter {
     if (msg === null || msg === undefined) {
       this._logger.warn(C.EVENT.MESSAGE_PARSE_ERROR, connectionMessage)
       socketWrapper.sendError(C.TOPIC.CONNECTION, C.EVENT.MESSAGE_PARSE_ERROR, connectionMessage)
-      socketWrapper.destroy()
+      socketWrapper.close()
     } else if (msg.topic !== C.TOPIC.CONNECTION) {
       this._logger.warn(C.EVENT.INVALID_MESSAGE, `invalid connection message ${connectionMessage}`)
       socketWrapper.sendError(C.TOPIC.CONNECTION, C.EVENT.INVALID_MESSAGE, 'invalid connection message')
@@ -414,7 +417,7 @@ module.exports = class ConnectionEndpoint extends events.EventEmitter {
   _sendInvalidAuthMsg (socketWrapper, msg) {
     this._logger.warn(C.EVENT.INVALID_AUTH_MSG, this._logInvalidAuthData ? msg : '')
     socketWrapper.sendError(C.TOPIC.AUTH, C.EVENT.INVALID_AUTH_MSG, 'invalid authentication message')
-    socketWrapper.destroy()
+    socketWrapper.close()
   }
 
   /**
@@ -501,7 +504,7 @@ module.exports = class ConnectionEndpoint extends events.EventEmitter {
     if (socketWrapper.authAttempts >= this._maxAuthAttempts) {
       this._logger.info(C.EVENT.TOO_MANY_AUTH_ATTEMPTS, 'too many authentication attempts')
       socketWrapper.sendError(C.TOPIC.AUTH, C.EVENT.TOO_MANY_AUTH_ATTEMPTS, messageBuilder.typed('too many authentication attempts'))
-      socketWrapper.destroy()
+      socketWrapper.close()
     }
   }
 
@@ -523,7 +526,7 @@ module.exports = class ConnectionEndpoint extends events.EventEmitter {
       C.EVENT.CONNECTION_AUTHENTICATION_TIMEOUT,
       messageBuilder.typed(log)
     )
-    socketWrapper.destroy()
+    socketWrapper.close()
   }
 
   /**
@@ -576,12 +579,13 @@ module.exports = class ConnectionEndpoint extends events.EventEmitter {
       this._authenticationHandler.onClientDisconnect(socketWrapper.user)
     }
 
+    this._authenticatedSockets.delete(socketWrapper)
+    this._scheduledSocketWrapperWrites.delete(socketWrapper)
+    this.closeWebsocketWrapper(socketWrapper)
+
     if (socketWrapper.user !== OPEN) {
       this.emit('client-disconnected', socketWrapper)
     }
-
-    this.closeWebsocketWrapper(socketWrapper)
-    this._authenticatedSockets.delete(socketWrapper)
   }
 
   /**
@@ -608,12 +612,7 @@ module.exports = class ConnectionEndpoint extends events.EventEmitter {
    */
   close () {
     this._httpServer.removeAllListeners('request')
-    this._httpServer.removeAllListeners('upgrade')
-
-    this.closeWebsocketServer();
-
-    this._httpServer.close(() => {
-      this.emit('close')
-    })
+    this._httpServer.close(() => this.emit('close'))
+    this.closeWebsocketServer()
   }
 }
