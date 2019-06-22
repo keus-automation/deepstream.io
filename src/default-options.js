@@ -22,7 +22,8 @@ exports.get = function () {
      */
     sslKey: null,
     sslCert: null,
-    sslCa: null,
+    sslDHParams: null,
+    sslPassphrase: null,
 
     /*
      * Authentication
@@ -52,6 +53,7 @@ exports.get = function () {
           heartbeatInterval: 30000,
           outgoingBufferTimeout: 0,
           noDelay: true,
+          headers: [],
 
           /*
            * Security
@@ -75,7 +77,8 @@ exports.get = function () {
           getPath: '/',
           healthCheckPath: '/health-check',
           allowAllOrigins: true,
-          origins: []
+          origins: [],
+          headers: []
         }
       }
     },

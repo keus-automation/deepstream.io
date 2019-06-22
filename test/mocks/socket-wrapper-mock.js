@@ -37,6 +37,7 @@ const SocketWrapper = function (socket, options) {
   this._currentPacketMessageCount = 0
   this._sendNextPacketTimeout = null
   this._currentMessageResetTimeout = null
+  this.isOpen = true
 }
 
 utils.inherits(SocketWrapper, EventEmitter)
@@ -100,7 +101,7 @@ SocketWrapper.prototype.sendNative = function (message) {
  * @returns {Object} handshakeData
  */
 SocketWrapper.prototype.getHandshakeData = function () {
-  return this._handshakeData
+  return this._handshakeData || {}
 }
 
 /**
@@ -165,7 +166,7 @@ SocketWrapper.prototype.send = function (message) {
  * @public
  * @returns {void}
  */
-SocketWrapper.prototype.destroy = function () {
+SocketWrapper.prototype.close = function () {
   this.socket.close()
   this.authCallBack = null
 }

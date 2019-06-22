@@ -1,3 +1,85 @@
+## [3.2.4] - 2019.06.04
+  
+### Fixes
+
+- Issue where headers were not retrieved correctly with new uws
+
+### Misc
+
+- Updating all dependencies (minor changes other than nexe) 
+
+## [3.2.3] - 2019.03.22
+  
+### Fixes
+
+- Issues due to hooks into monitoring tool for enterprise customers (hooks will eventually find themselves into OS!)
+
+### Misc
+
+- Updating all dependencies (minor changes) 
+
+## [3.2.2] - 2019.03.10
+
+### Fixes
+
+- Lingering nexe issues, such as entry points
+- Including uWS options such as path and heartbeat timeouts
+- Don't error if closing server more than once, just log that shutdown is already in progress
+
+## [3.2.1] - 2019.03.04
+
+### Improvements
+
+- Removed node server in favour uWS due to over 5x of performance improvements (based on library benchmarks)
+
+## [3.2.0] - 2019.03.04
+
+### Improvements
+
+- We now use uWS 0.15, which is much quicker and up to update than the previous deprecated version.
+
+### Fixes
+
+- Hopefully sorted out the build to produce artifacts for linux flavours and linux.
+
+### Breaking changes
+
+Unfortunately due the changes in the underlying library we had to change a couple of options. We decided against
+releasing as 4.0 because even though its the correct semver we already have a major V4 version, and the changes
+should only affect people using SSL within the server (which isn't recommended in production!)
+
+The following has been removed:
+- `sslCa` 
+
+And the following optional config has been added:
+- `sslDHParams`: a file that you can optionally provide
+- `sslPassphrase`: the passphrase that the files are encrypted with
+
+You are also required to specify which headers you want to copy from the websocket connection, as we are not provided 
+them all by default
+
+```
+connectionEndpoints:
+  websocket:
+    name: uws
+    options:
+      # Headers to copy over from websocket
+      headers:
+        - user-agent
+```
+
+## [3.1.6] - 2019.02.12
+
+### Bug Fix
+
+- Send random bytes crash server [@rzhade3](@rzhade3) [#926](https://github.com/deepstreamIO/deepstream.io/issues/927)
+
+### Misc
+
+- Seperate out the websocket provider into a separate class to allow different websocket servers
+- Upgrading to node 10
+- Upgrading all dependencies
+
 ## [3.1.5] - 2018.09.17
 
 ### Misc

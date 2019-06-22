@@ -134,6 +134,16 @@ module.exports = class Deepstream extends EventEmitter {
       throw new Error('The server is already stopped.')
     }
 
+    if ([
+      STATES.CONNECTION_ENDPOINT_SHUTDOWN,
+      STATES.SERVICE_SHUTDOWN,
+      STATES.PLUGIN_SHUTDOWN,
+      STATES.LOGGER_SHUTDOWN
+    ].includes(this._currentState)) {
+      this._options.logger.info(C.EVENT.INFO, `Already shutting down server, currently in state: ${this._currentState}`)
+      return
+    }
+
     this._transition('stop')
   }
 
@@ -217,6 +227,12 @@ module.exports = class Deepstream extends EventEmitter {
       if (logger instanceof EventEmitter) {
         logger.on('error', this._onPluginError.bind(this, 'logger'))
       }
+
+      logger.debug(`deepstream V3 is in maintenance mode
+It's heavily recommended you try out V4 (@deepstream/server)
+You can see the changlogs here https://deepstream.io/releases/server/v4-0-0/
+It's currently in RC due to work required on website and binaries, however as far as
+functionality goes its on par + some with V3 and resolves many of the issues in V3)`)
       this._transition('logger-started')
     })
   }
@@ -472,18 +488,8 @@ module.exports = class Deepstream extends EventEmitter {
     if (this._options.showLogo !== true) {
       return
     }
-  /* istanbul ignore next */
-    let logo
 
-    try {
-    const nexeres = require('nexeres') // eslint-disable-line
-      logo = nexeres.get('ascii-logo.txt').toString('ascii')
-    } catch (e) {
-      logo = fs.readFileSync(path.join(__dirname, '..', '/ascii-logo.txt'), 'utf8')
-    }
-
-  /* istanbul ignore next */
-    process.stdout.write(logo + EOL)
+    process.stdout.write(fs.readFileSync(path.join(__dirname, '..', '/ascii-logo.txt'), 'utf8') + EOL)
     process.stdout.write(
     ` =====================   starting   =====================${EOL}`
   )
